@@ -18,16 +18,16 @@ export default function Footer() {
         <GridItem justifySelf="start">
           {/* Built by{" "} */}
           {/* <a href="http://shimon-wosner.vercel.app" target="_blank"> */}
-          <a
+          {/* <a
             href="https://twitter.com/shwosner"
             target="_blank"
             rel="noreferrer"
-          >
+          > */}
             <FaTwitter style={{ display: "inline" }} />
-            @shwosner
-          </a>
+            @acyrx
+          {/* </a> */}
         </GridItem>
-        <GridItem justifySelf="end">
+        {/* <GridItem justifySelf="end">
           <a
             href="https://github.com/shwosner/realtime-chat-supabase-react"
             target="_blank"
@@ -35,7 +35,7 @@ export default function Footer() {
           >
             <FaGithub style={{ display: "inline" }} /> Source code
           </a>
-        </GridItem>
+        </GridItem> */}
       </Grid>
     </Box>
   );

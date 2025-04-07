@@ -1,4 +1,4 @@
-// import { ColorModeScript } from "@chakra-ui/react";
+import { ColorModeScript } from "@chakra-ui/react";
 import ReactDOM from "react-dom/client";
 import App from "./App";
 
@@ -7,7 +7,7 @@ const reactRoot = ReactDOM.createRoot(root);
 
 reactRoot.render(
   <>
-    {/* <ColorModeScript /> */}
+    <ColorModeScript />
     <App />
   </>
 );

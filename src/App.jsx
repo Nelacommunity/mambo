@@ -1,5 +1,5 @@
 import { ChakraProvider, Box, theme } from "@chakra-ui/react";
-// import { ColorModeSwitcher } from "./components/ColorModeSwitcher";
+import { ColorModeSwitcher } from "./components/ColorModeSwitcher";
 import "./App.css";
 import Header from "./layout/Header";
 import Footer from "./layout/Footer";
