@@ -7,7 +7,7 @@ const reactRoot = ReactDOM.createRoot(root);
 
 reactRoot.render(
   <>
-    <ColorModeScript />
+    {/* <ColorModeScript /> */}
     <App />
   </>
 );

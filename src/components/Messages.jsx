@@ -36,6 +36,9 @@ export default function Messages() {
 
   return reversed.map((message) => {
     const isYou = message.username === username;
-    return <Message key={message.id} message={message} isYou={isYou} />;
+    return (
+    <Message key={message.id} message={message} isYou={isYou} />
+  )
+    
   });
 }

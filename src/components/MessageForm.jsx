@@ -80,9 +80,8 @@ export default function MessageForm() {
             />
           </Stack>
         </form>
-        <Box fontSize="10px" mt="1">
-          Warning: do not share any sensitive information, it's a public chat
-          room 🙂
+        <Box fontSize="15px" mt="1" color={"blue"}>
+          Welcome to Public Chat room 🙂
         </Box>
       </Container>
     </Box>

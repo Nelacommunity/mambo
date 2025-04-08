@@ -81,7 +81,7 @@ export default function Header() {
         <>
           <GridItem justifySelf="end">
             <VStack spacing={2}>
-              {!otpSent ? (
+              {/* {!otpSent ? (
                 <>
                   <Input
                     placeholder="Enter phone number"
@@ -105,7 +105,7 @@ export default function Header() {
                     Verify OTP
                   </Button>
                 </>
-              )}
+              )} */}
               <NameForm username={username} setUsername={setUsername} />
             </VStack>
           </GridItem>

@@ -86,12 +86,14 @@
 //   );
 // }
 
+
 import { Box, Flex, Text, useColorModeValue, keyframes } from "@chakra-ui/react";
-import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
 dayjs.extend(relativeTime);
 import { MdVerified, MdDoneAll } from "react-icons/md";
 import { truncateText } from "../utils";
+import useTimezone from "../hooks/useTimezone";
+import dayjs from "../utils/dayjs-setup";
 
 const fadeIn = keyframes`
   from { opacity: 0; transform: translateY(4px); }
@@ -118,6 +120,16 @@ export default function Message({ message, isYou, isRead }) {
 
   const readColor = isYou ? "blue.200" : "transparent";
 
+  const timezone = useTimezone();
+
+
+
+
+  // Improved bubble shadow and border
+  const bubbleShadow = isYou
+    ? useColorModeValue("sm", "dark-lg")
+    : useColorModeValue("sm", "md");
+
   return (
     <Box
       maxW={{ base: "85%", md: "75%" }}
@@ -125,6 +137,11 @@ export default function Message({ message, isYou, isRead }) {
       mr={isYou ? "2" : "auto"}
       my="1"
       animation={`${fadeIn} 0.2s ease-out`}
+      transition="all 0.2s ease"
+      _hover={{
+        transform: "translateY(-1px)"
+      }}
+      
     >
       <Flex
         direction="column"
@@ -140,10 +157,23 @@ export default function Message({ message, isYou, isRead }) {
           borderTopLeftRadius={isYou ? "xl" : "none"}
           bg={bgColor}
           color={textColor}
-          boxShadow="sm"
+          boxShadow={bubbleShadow}
           wordBreak="break-word"
           fontSize="md"
           lineHeight="taller"
+          position="relative"
+          _after={{
+            content: '""',
+            position: 'absolute',
+            width: 0,
+            height: 0,
+            border: '8px solid transparent',
+            [isYou ? 'right' : 'left']: 0,
+            [isYou ? 'borderRight' : 'borderLeft']: 0,
+            [isYou ? 'borderTop' : 'borderTop']: `8px solid ${bgColor}`,
+            top: '100%',
+            [isYou ? 'marginRight' : 'marginLeft']: '-8px',
+          }}
         >
           {message.text}
         </Box>
@@ -154,6 +184,7 @@ export default function Message({ message, isYou, isRead }) {
           mt="1"
           gap="1"
           px="2"
+
           direction={isYou ? "row" : "row-reverse"}
         >
           {/* Timestamp */}
@@ -161,8 +192,9 @@ export default function Message({ message, isYou, isRead }) {
             fontSize="xs"
             color={timeColor}
             fontVariant="tabular-nums"
+            whiteSpace="nowrap"
           >
-            {dayjs(message.timestamp).format("h:mm A")}
+             {dayjs.utc(message.timestamp).tz(timezone).format("h:mm A")}
           </Text>
 
           {/* Read receipt */}
@@ -174,23 +206,30 @@ export default function Message({ message, isYou, isRead }) {
 
           {/* Sender info (only for received messages) */}
           {!isYou && (
-            <Flex align="center" gap="1">
+            <Flex align="center" gap="1" maxW="100%">
               {message.is_authenticated && (
                 <MdVerified color="#1d9bf0" size={14} />
               )}
               {countyCode && (
-                <img
-                  src={`/flags/${countyCode}.png`}
-                  alt={message.country}
-                  style={{
-                    width: "14px",
-                    height: "10px",
-                    borderRadius: "1px",
-                    objectFit: "cover"
-                  }}
-                />
+                <Box flexShrink={0}>
+                  <img
+                    src={`/flags/${countyCode}.png`}
+                    alt={message.country}
+                    style={{
+                      width: "14px",
+                      height: "10px",
+                      borderRadius: "1px",
+                      objectFit: "cover"
+                    }}
+                  />
+                </Box>
               )}
-              <Text fontSize="xs" color={timeColor}>
+              <Text 
+                fontSize="xs" 
+                color={timeColor}
+                isTruncated
+                maxW="120px"
+              >
                 {message.username}
               </Text>
             </Flex>
