@@ -1,4 +1,4 @@
-import { Box, Flex, Text, useColorModeValue, keyframes, Input, Button, useToast, IconButton, Menu, MenuButton, MenuList, MenuItem, Tooltip } from "@chakra-ui/react";
+import { Box, Flex, Text, useColorModeValue, keyframes, Input, Button, useToast, IconButton, Menu, MenuButton, MenuList, MenuItem, Tooltip ,Image } from "@chakra-ui/react";
 import relativeTime from "dayjs/plugin/relativeTime";
 dayjs.extend(relativeTime);
 import { MdVerified, MdDoneAll, MdReply, MdMoreVert, MdEdit, MdDelete } from "react-icons/md";
@@ -25,8 +25,8 @@ export default function Message({ message, isYou, country, username, onMessageUp
   const audioRef = useRef(null);
   const toast = useToast();
 
-  const countyCode = message.country && message.country !== "undefined" 
-    ? message.country.toLowerCase() 
+  const countyCode = message.country && message.country !== "undefined"
+    ? message.country.toLowerCase()
     : "";
 
   useEffect(() => {
@@ -38,14 +38,14 @@ export default function Message({ message, isYou, country, username, onMessageUp
             .select('id, text, username, is_deleted')
             .eq('id', message.reply_to)
             .single();
-          
+
           if (error) throw error;
           setOriginalMessage(data);
         } catch (error) {
           console.error('Error fetching original message:', error);
         }
       };
-      
+
       fetchOriginalMessage();
     } else if (message.reply_to && typeof message.reply_to === 'object') {
       setOriginalMessage(message.reply_to);
@@ -55,7 +55,7 @@ export default function Message({ message, isYou, country, username, onMessageUp
   useEffect(() => {
     audioRef.current = new Audio(NOTIFICATION_SOUND);
     audioRef.current.volume = 0.3;
-    
+
     return () => {
       if (audioRef.current) {
         audioRef.current.pause();
@@ -71,11 +71,11 @@ export default function Message({ message, isYou, country, username, onMessageUp
     }
   };
 
-  const bgColor = isYou 
+  const bgColor = isYou
     ? useColorModeValue("blue.500", "blue.600")
     : useColorModeValue("gray.100", "gray.700");
-  
-  const textColor = isYou 
+
+  const textColor = isYou
     ? "white"
     : useColorModeValue("gray.800", "gray.100");
 
@@ -98,32 +98,32 @@ export default function Message({ message, isYou, country, username, onMessageUp
 
   const handleSendReply = async () => {
     if (!replyText.trim()) return;
-    
+
     setIsReplying(true);
-    
+
     try {
       const { data, error } = await supabase
-        .from('messages') 
+        .from('messages')
         .insert([{
           text: replyText,
-          username: username, 
-          reply_to: message.id, 
-          country: country, 
-          is_authenticated: false 
+          username: username,
+          reply_to: message.id,
+          country: country,
+          is_authenticated: false
         }]);
-      
+
       if (error) throw error;
-      
+
       setReplyText('');
       playNotificationSound();
-      
+
       toast({
         title: "Reply sent",
         status: "success",
         duration: 2000,
         isClosable: true,
       });
-      
+
     } catch (error) {
       console.error('Error sending reply:', error);
       toast({
@@ -154,7 +154,7 @@ export default function Message({ message, isYou, country, username, onMessageUp
     if (originalMessage?.id) {
       const element = document.getElementById(`message-${originalMessage.id}`);
       if (element) {
-        element.scrollIntoView({ 
+        element.scrollIntoView({
           behavior: 'smooth',
           block: 'center'
         });
@@ -169,19 +169,19 @@ export default function Message({ message, isYou, country, username, onMessageUp
         .from('messages')
         .update({ is_deleted: true })
         .eq('id', message.id);
-      
+
       if (error) throw error;
-      
+
       setIsDeleted(true);
       if (onMessageDelete) onMessageDelete(message.id);
-      
+
       toast({
         title: "Message deleted",
         status: "success",
         duration: 2000,
         isClosable: true,
       });
-      
+
     } catch (error) {
       console.error('Error deleting message:', error);
       toast({
@@ -199,30 +199,30 @@ export default function Message({ message, isYou, country, username, onMessageUp
       setIsEditing(false);
       return;
     }
-    
+
     try {
       const { error } = await supabase
         .from('messages')
-        .update({ 
+        .update({
           text: editedText,
           is_updated: true,
           updated_at: new Date().toISOString()
         })
         .eq('id', message.id);
-      
+
       if (error) throw error;
-      
+
       setIsEditing(false);
       setIsUpdated(true);
       if (onMessageUpdate) onMessageUpdate(message.id, editedText);
-      
+
       toast({
         title: "Message updated",
         status: "success",
         duration: 2000,
         isClosable: true,
       });
-      
+
     } catch (error) {
       console.error('Error updating message:', error);
       toast({
@@ -367,7 +367,7 @@ export default function Message({ message, isYou, country, username, onMessageUp
             </Tooltip>
           </Flex>
         )}
-        
+
         {isEditing ? (
           <Box
             px="3"
@@ -393,8 +393,8 @@ export default function Message({ message, isYou, country, username, onMessageUp
               _focus={{ borderColor: textColor, boxShadow: `0 0 0 1px ${textColor}` }}
             />
             <Flex justify="flex-end" gap={2}>
-              <Button 
-                size="xs" 
+              <Button
+                size="xs"
                 onClick={() => {
                   setIsEditing(false);
                   setEditedText(message.text);
@@ -405,9 +405,9 @@ export default function Message({ message, isYou, country, username, onMessageUp
               >
                 Cancel
               </Button>
-              <Button 
-                size="xs" 
-                colorScheme="blue" 
+              <Button
+                size="xs"
+                colorScheme="blue"
                 onClick={handleEditMessage}
                 _hover={{ transform: "scale(1.05)" }}
               >
@@ -442,7 +442,22 @@ export default function Message({ message, isYou, country, username, onMessageUp
               [isYou ? 'marginRight' : 'marginLeft']: '-8px',
             }}
           >
-            {message.text}
+            {message.gif_url ? (
+              <>
+                <Image
+                  src={message.gif_url}
+                  alt="GIF"
+                  maxW="250px"
+                  borderRadius="md"
+                  mb={message.text ? 2 : 0}
+                />
+                {message.text && (
+                  <Text>{message.text}</Text>
+                )}
+              </>
+            ) : (
+              <Text>{message.text}</Text>
+            )}
             {isUpdated && (
               <Text as="span" fontSize="xs" opacity={0.7} ml={2}>
                 (edited)
@@ -518,8 +533,8 @@ export default function Message({ message, isYou, country, username, onMessageUp
                   />
                 </Box>
               )}
-              <Text 
-                fontSize="xs" 
+              <Text
+                fontSize="xs"
                 color={timeColor}
                 isTruncated
                 maxW="120px"

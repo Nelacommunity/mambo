@@ -1,4 +1,4 @@
-import { useState, useRef } from "react"; // Added useRef
+import { useState, useRef } from "react";
 import {
   Input,
   Stack,
@@ -6,24 +6,26 @@ import {
   useToast,
   Box,
   Container,
+  Popover,
+  PopoverTrigger,
+  PopoverContent,
 } from "@chakra-ui/react";
-import { BiSend } from "react-icons/bi";
+import { BiSend, BiImageAlt } from "react-icons/bi";
 import { useAppContext } from "../context/appContext";
 import supabase from "../supabaseClient";
+import GifPicker from "./GifPicker";
 
 export default function MessageForm() {
   const { username, country, session } = useAppContext();
   const [message, setMessage] = useState("");
   const toast = useToast();
   const [isSending, setIsSending] = useState(false);
-  const audioRef = useRef(null); // Reference for the audio element
+  const audioRef = useRef(null);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsSending(true);
     if (!message) return;
-
-    setMessage("");
 
     try {
       const { error } = await supabase.from("messages").insert([
@@ -35,30 +37,57 @@ export default function MessageForm() {
         },
       ]);
 
-      if (error) {
-        console.error(error.message);
-        toast({
-          title: "Error sending",
-          description: error.message,
-          status: "error",
-          duration: 9000,
-          isClosable: true,
-        });
-        return;
-      }
+      if (error) throw error;
       
-      console.log("Successfully sent!");
+      setMessage("");
       
       // Play success sound
       if (audioRef.current) {
-        audioRef.current.currentTime = 0; // Rewind to start if already playing
+        audioRef.current.currentTime = 0;
         audioRef.current.play().catch(error => {
           console.warn("Audio play failed:", error);
         });
       }
-      
     } catch (error) {
-      console.log("error sending message:", error);
+      toast({
+        title: "Error sending",
+        description: error.message,
+        status: "error",
+        duration: 9000,
+        isClosable: true,
+      });
+    } finally {
+      setIsSending(false);
+    }
+  };
+
+  const handleSendGif = async (gifUrl) => {
+    setIsSending(true);
+    try {
+      const { error } = await supabase.from("messages").insert([
+        {
+          gif_url: gifUrl,
+          username,
+          country,
+          is_authenticated: session ? true : false,
+        },
+      ]);
+
+      if (error) throw error;
+
+      // Play success sound
+      if (audioRef.current) {
+        audioRef.current.currentTime = 0;
+        audioRef.current.play();
+      }
+    } catch (error) {
+      toast({
+        title: "Error sending GIF",
+        description: error.message,
+        status: "error",
+        duration: 9000,
+        isClosable: true,
+      });
     } finally {
       setIsSending(false);
     }
@@ -66,12 +95,25 @@ export default function MessageForm() {
 
   return (
     <Box py="10px" pt="15px" bg="gray.100">
-      {/* Hidden audio element */}
       <audio ref={audioRef} src="/audio/default.mp3" preload="auto" />
       
       <Container maxW="600px">
         <form onSubmit={handleSubmit} autoComplete="off">
-          <Stack direction="row">
+          <Stack direction="row" align="center">
+            <Popover placement="top-start">
+              <PopoverTrigger>
+                <IconButton
+                  aria-label="Send GIF"
+                  icon={<BiImageAlt />}
+                  variant="ghost"
+                  colorScheme="gray"
+                />
+              </PopoverTrigger>
+              <PopoverContent width="auto">
+                <GifPicker onSelect={handleSendGif} />
+              </PopoverContent>
+            </Popover>
+            
             <Input
               name="message"
               placeholder="Enter a message"
@@ -81,7 +123,9 @@ export default function MessageForm() {
               border="none"
               autoFocus
               maxLength="500"
+              flex="1"
             />
+            
             <IconButton
               colorScheme="teal"
               aria-label="Send"
@@ -93,7 +137,7 @@ export default function MessageForm() {
             />
           </Stack>
         </form>
-        <Box fontSize="15px" mt="1" color={"blue"}>
+        <Box fontSize="15px" mt="1" color="blue">
           Welcome to Public Chat room 🙂
         </Box>
       </Container>
