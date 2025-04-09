@@ -4,7 +4,7 @@ dayjs.extend(relativeTime);
 import { MdVerified, MdDoneAll, MdReply } from "react-icons/md";
 import useTimezone from "../hooks/useTimezone";
 import dayjs from "../utils/dayjs-setup";
-import { useState, useEffect } from "react"; // Add useEffect
+import { useState, useEffect } from "react";
 import supabase from "../supabaseClient";
 
 const fadeIn = keyframes`
@@ -15,13 +15,12 @@ const fadeIn = keyframes`
 export default function Message({ message, isYou, country, username }) {
   const [replyText, setReplyText] = useState("");
   const [isReplying, setIsReplying] = useState(false);
-  const [originalMessage, setOriginalMessage] = useState(null); // State for original message
+  const [originalMessage, setOriginalMessage] = useState(null);
 
   const countyCode = message.country && message.country !== "undefined" 
     ? message.country.toLowerCase() 
     : "";
 
-  // Fetch original message when reply_to exists
   useEffect(() => {
     if (message.reply_to && typeof message.reply_to === 'number') {
       const fetchOriginalMessage = async () => {
@@ -41,12 +40,10 @@ export default function Message({ message, isYou, country, username }) {
       
       fetchOriginalMessage();
     } else if (message.reply_to && typeof message.reply_to === 'object') {
-      // If reply_to is already populated with the message object
       setOriginalMessage(message.reply_to);
     }
   }, [message.reply_to]);
 
-  // Colors (same as before)
   const bgColor = isYou 
     ? useColorModeValue("blue.500", "blue.600")
     : useColorModeValue("gray.100", "gray.700");
@@ -70,7 +67,6 @@ export default function Message({ message, isYou, country, username }) {
     ? useColorModeValue("sm", "dark-lg")
     : useColorModeValue("sm", "md");
 
-  // Function to handle sending a reply
   const handleSendReply = async () => {
     if (!replyText.trim()) return;
     
@@ -91,9 +87,6 @@ export default function Message({ message, isYou, country, username }) {
       
       setReplyText('');
       
-      // if (onNewMessage && data) {
-      //   onNewMessage(data[0]);
-      // }
     } catch (error) {
       console.error('Error sending reply:', error);
     } finally {
@@ -101,13 +94,11 @@ export default function Message({ message, isYou, country, username }) {
     }
   };
 
-  // Function to handle reply click
   const handleReplyClick = (e) => {
     e.stopPropagation();
     handleSendReply();
   };
 
-  // Handle pressing Enter key in reply input
   const handleKeyDown = (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
@@ -115,8 +106,22 @@ export default function Message({ message, isYou, country, username }) {
     }
   };
 
+  // Add scroll to original message function
+  const handleScrollToOriginal = () => {
+    if (originalMessage?.id) {
+      const element = document.getElementById(`message-${originalMessage.id}`);
+      if (element) {
+        element.scrollIntoView({ 
+          behavior: 'smooth',
+          block: 'center'
+        });
+      }
+    }
+  };
+
   return (
     <Box
+      id={`message-${message.id}`} // Add ID to message container
       maxW={{ base: "85%", md: "75%" }}
       ml={isYou ? "auto" : "0"}
       mr={isYou ? "2" : "auto"}
@@ -132,7 +137,6 @@ export default function Message({ message, isYou, country, username }) {
         align={isYou ? "flex-end" : "flex-start"}
         position="relative"
       >
-        {/* Reply indicator and quoted message */}
         {message.reply_to && (
           <>
             <Flex
@@ -161,6 +165,7 @@ export default function Message({ message, isYou, country, username }) {
               color={replyTextColor}
               cursor="pointer"
               _hover={{ bg: useColorModeValue("gray.100", "gray.500") }}
+              onClick={handleScrollToOriginal} // Add click handler
             >
               <Text isTruncated fontWeight="semibold">
                 {originalMessage?.username || "Unknown user"}
@@ -172,8 +177,6 @@ export default function Message({ message, isYou, country, username }) {
           </>
         )}
 
-        {/* Rest of your component remains the same */}
-        {/* Message bubble */}
         <Box
           px="3"
           py="2"
@@ -203,7 +206,6 @@ export default function Message({ message, isYou, country, username }) {
           {message.text}
         </Box>
 
-        {/* Reply Input */}
         <Box mt="2" width="100%">
           <Flex gap="2">
             <Input
@@ -225,7 +227,6 @@ export default function Message({ message, isYou, country, username }) {
           </Flex>
         </Box>
 
-        {/* Meta info */}
         <Flex
           align="center"
           mt="1"
@@ -248,7 +249,6 @@ export default function Message({ message, isYou, country, username }) {
             </Box>
           )}
 
-          {/* Sender info (only for received messages) */}
           {!isYou && (
             <Flex align="center" gap="1" maxW="100%">
               {message.is_authenticated && (

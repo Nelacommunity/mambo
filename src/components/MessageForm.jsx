@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react"; // Added useRef
 import {
   Input,
   Stack,
@@ -16,6 +16,7 @@ export default function MessageForm() {
   const [message, setMessage] = useState("");
   const toast = useToast();
   const [isSending, setIsSending] = useState(false);
+  const audioRef = useRef(null); // Reference for the audio element
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -45,7 +46,17 @@ export default function MessageForm() {
         });
         return;
       }
-      console.log("Sucsessfully sent!");
+      
+      console.log("Successfully sent!");
+      
+      // Play success sound
+      if (audioRef.current) {
+        audioRef.current.currentTime = 0; // Rewind to start if already playing
+        audioRef.current.play().catch(error => {
+          console.warn("Audio play failed:", error);
+        });
+      }
+      
     } catch (error) {
       console.log("error sending message:", error);
     } finally {
@@ -55,6 +66,9 @@ export default function MessageForm() {
 
   return (
     <Box py="10px" pt="15px" bg="gray.100">
+      {/* Hidden audio element */}
+      <audio ref={audioRef} src="/audio/default.mp3" preload="auto" />
+      
       <Container maxW="600px">
         <form onSubmit={handleSubmit} autoComplete="off">
           <Stack direction="row">
@@ -69,7 +83,6 @@ export default function MessageForm() {
               maxLength="500"
             />
             <IconButton
-              // variant="outline"
               colorScheme="teal"
               aria-label="Send"
               fontSize="20px"
