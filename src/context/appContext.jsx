@@ -16,6 +16,9 @@ const AppContextProvider = ({ children }) => {
   const [unviewedMessageCount, setUnviewedMessageCount] = useState(0);
   const [countryCode, setCountryCode] = useState("");
   const [isInitialLoad, setIsInitialLoad] = useState(false);
+  
+  // Audio ref for new message sound
+  const newMessageSoundRef = useRef(null);
 
   useEffect(() => {
     if (isInitialLoad) {
@@ -23,6 +26,19 @@ const AppContextProvider = ({ children }) => {
       scrollToBottom();
     }
   }, [messages]);
+
+  const playNewMessageSound = () => {
+    try {
+      if (newMessageSoundRef.current) {
+        newMessageSoundRef.current.currentTime = 0; // Rewind to start
+        newMessageSoundRef.current.play().catch(error => {
+          console.warn("Audio play failed:", error);
+        });
+      }
+    } catch (error) {
+      console.error("Error playing sound:", error);
+    }
+  };
 
   const getLocation = async () => {
     try {
@@ -79,6 +95,12 @@ const AppContextProvider = ({ children }) => {
 
   useEffect(() => {
     if (!newIncomingMessageTrigger) return;
+    
+    // Play sound for new messages that aren't from the current user
+    if (newIncomingMessageTrigger.username !== username) {
+      playNewMessageSound();
+    }
+    
     if (newIncomingMessageTrigger.username === username) {
       scrollToBottom();
     } else {
@@ -155,7 +177,6 @@ const AppContextProvider = ({ children }) => {
     scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
   };
 
-
   return (
     <AppContext.Provider
       value={{
@@ -176,6 +197,13 @@ const AppContextProvider = ({ children }) => {
         session,
       }}
     >
+      {/* Hidden audio element for new message notifications */}
+      <audio 
+        ref={newMessageSoundRef} 
+        src="/audio/new-message.mp3" 
+        preload="auto" 
+      />
+      
       {children}
     </AppContext.Provider>
   );
