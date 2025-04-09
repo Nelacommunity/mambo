@@ -111,6 +111,11 @@ const AppContextProvider = ({ children }) => {
   const handleNewMessage = (payload) => {
     setMessages((prevMessages) => [payload.new, ...prevMessages]);
     setNewIncomingMessageTrigger(payload.new);
+
+    // Increment unread message count if the message is not from the current user
+  if (payload.new.username !== username) {
+    setUnviewedMessageCount((prevCount) => prevCount + 1);
+  }
   };
 
   const getInitialMessages = async () => {
@@ -176,6 +181,15 @@ const AppContextProvider = ({ children }) => {
     if (!scrollRef.current) return;
     scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
   };
+
+  useEffect(() => {
+    // Update the site title with the number of unread messages
+    if (unviewedMessageCount > 0) {
+      document.title = `(${unviewedMessageCount}) New Messages - My Chat App`;
+    } else {
+      document.title = "Mambo";
+    }
+  }, [unviewedMessageCount]);
 
   return (
     <AppContext.Provider
