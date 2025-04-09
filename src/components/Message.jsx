@@ -1,111 +1,52 @@
-// import { Box, Grid, GridItem } from "@chakra-ui/react";
-// import dayjs from "dayjs";
-// import relativeTime from "dayjs/plugin/relativeTime";
-// dayjs.extend(relativeTime);
-// import { MdVerified } from "react-icons/md";
-// import { truncateText } from "../utils";
-
-// export default function Message({ message, isYou }) {
-//   const countyCode =
-//     message.country && message.country !== "undefined"
-//       ? message.country.toLowerCase()
-//       : "";
-//   return (
-//     <Box display="grid" justifyItems={isYou ? "end" : "start"}>
-//       <Grid
-//         templateRows="30px 1fr 25px"
-//         templateColumns="1fr"
-//         w="70%"
-//         px="3"
-//         py="2"
-//         borderRadius="5px"
-//         borderTopLeftRadius={isYou ? "5px" : "0"}
-//         borderTopRightRadius={isYou ? "0" : "5px"}
-//         bg={isYou ? "#dbfff9" : "#edf3f9"}
-//         mt="5"
-//         position="relative"
-//         _after={{
-//           position: "absolute",
-//           content: "''",
-//           width: 0,
-//           height: 0,
-//           borderStyle: "solid",
-//           borderWidth: isYou ? "0px 0px 10px 10px" : "0px 10px 10px 0",
-//           borderColor: isYou
-//             ? "transparent transparent transparent #dbfff9"
-//             : "transparent #edf3f9 transparent transparent",
-//           top: 0,
-//           left: isYou ? "auto" : "-10px",
-//           right: isYou ? "-10px" : "auto",
-//         }}
-//       >
-//         <GridItem
-//           fontWeight="500"
-//           fontSize="md"
-//           justifySelf="start"
-//           color="gray.500"
-//           mb="2"
-//         >
-//           <span>{message.username} </span>
-//           {message.is_authenticated && (
-//             <MdVerified
-//               color="#1d9bf0"
-//               style={{ display: "inline", marginRight: "5px" }}
-//             />
-//           )}
-//           {countyCode && (
-//             <Box display="inline-block" fontSize="10px">
-//               from {message.country}{" "}
-//               <img
-//                 style={{ display: "inline-block", marginTop: "-4px" }}
-//                 src={`/flags/${countyCode}.png`}
-//                 alt={message.country}
-//               />
-//             </Box>
-//           )}
-//         </GridItem>
-//         <GridItem
-//           justifySelf="start"
-//           textAlign="left"
-//           wordBreak="break-word"
-//           fontSize="md"
-//           fontFamily="Montserrat, sans-serif"
-//         >
-//           {truncateText(message.text)}
-//         </GridItem>
-//         <GridItem
-//           color="gray"
-//           fontSize="10px"
-//           justifySelf="end"
-//           alignSelf="end"
-//         >
-//           {dayjs(message.timestamp).fromNow()}
-//         </GridItem>
-//       </Grid>
-//     </Box>
-//   );
-// }
-
-
-import { Box, Flex, Text, useColorModeValue, keyframes } from "@chakra-ui/react";
+import { Box, Flex, Text, useColorModeValue, keyframes, Input, Button } from "@chakra-ui/react";
 import relativeTime from "dayjs/plugin/relativeTime";
 dayjs.extend(relativeTime);
-import { MdVerified, MdDoneAll } from "react-icons/md";
-import { truncateText } from "../utils";
+import { MdVerified, MdDoneAll, MdReply } from "react-icons/md";
 import useTimezone from "../hooks/useTimezone";
 import dayjs from "../utils/dayjs-setup";
+import { useState, useEffect } from "react"; // Add useEffect
+import supabase from "../supabaseClient";
 
 const fadeIn = keyframes`
   from { opacity: 0; transform: translateY(4px); }
   to { opacity: 1; transform: translateY(0); }
 `;
 
-export default function Message({ message, isYou, isRead }) {
+export default function Message({ message, isYou, country, username }) {
+  const [replyText, setReplyText] = useState("");
+  const [isReplying, setIsReplying] = useState(false);
+  const [originalMessage, setOriginalMessage] = useState(null); // State for original message
+
   const countyCode = message.country && message.country !== "undefined" 
     ? message.country.toLowerCase() 
     : "";
 
-  // Colors
+  // Fetch original message when reply_to exists
+  useEffect(() => {
+    if (message.reply_to && typeof message.reply_to === 'number') {
+      const fetchOriginalMessage = async () => {
+        try {
+          const { data, error } = await supabase
+            .from('messages')
+            .select('id, text, username')
+            .eq('id', message.reply_to)
+            .single();
+          
+          if (error) throw error;
+          setOriginalMessage(data);
+        } catch (error) {
+          console.error('Error fetching original message:', error);
+        }
+      };
+      
+      fetchOriginalMessage();
+    } else if (message.reply_to && typeof message.reply_to === 'object') {
+      // If reply_to is already populated with the message object
+      setOriginalMessage(message.reply_to);
+    }
+  }, [message.reply_to]);
+
+  // Colors (same as before)
   const bgColor = isYou 
     ? useColorModeValue("blue.500", "blue.600")
     : useColorModeValue("gray.100", "gray.700");
@@ -119,16 +60,60 @@ export default function Message({ message, isYou, isRead }) {
     : useColorModeValue("gray.500", "gray.400");
 
   const readColor = isYou ? "blue.200" : "transparent";
+  const replyBgColor = useColorModeValue("gray.50", "gray.600");
+  const replyBorderColor = useColorModeValue("gray.200", "gray.500");
+  const replyTextColor = useColorModeValue("gray.600", "gray.300");
 
   const timezone = useTimezone();
 
-
-
-
-  // Improved bubble shadow and border
   const bubbleShadow = isYou
     ? useColorModeValue("sm", "dark-lg")
     : useColorModeValue("sm", "md");
+
+  // Function to handle sending a reply
+  const handleSendReply = async () => {
+    if (!replyText.trim()) return;
+    
+    setIsReplying(true);
+    
+    try {
+      const { data, error } = await supabase
+        .from('messages') 
+        .insert([{
+          text: replyText,
+          username: username, 
+          reply_to: message.id, 
+          country: country, 
+          is_authenticated: false 
+        }]);
+      
+      if (error) throw error;
+      
+      setReplyText('');
+      
+      // if (onNewMessage && data) {
+      //   onNewMessage(data[0]);
+      // }
+    } catch (error) {
+      console.error('Error sending reply:', error);
+    } finally {
+      setIsReplying(false);
+    }
+  };
+
+  // Function to handle reply click
+  const handleReplyClick = (e) => {
+    e.stopPropagation();
+    handleSendReply();
+  };
+
+  // Handle pressing Enter key in reply input
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSendReply();
+    }
+  };
 
   return (
     <Box
@@ -141,13 +126,53 @@ export default function Message({ message, isYou, isRead }) {
       _hover={{
         transform: "translateY(-1px)"
       }}
-      
     >
       <Flex
         direction="column"
         align={isYou ? "flex-end" : "flex-start"}
         position="relative"
       >
+        {/* Reply indicator and quoted message */}
+        {message.reply_to && (
+          <>
+            <Flex
+              align="center"
+              mb="1"
+              fontSize="xs"
+              color={replyTextColor}
+              width="100%"
+              direction={isYou ? "row-reverse" : "row"}
+            >
+              <MdReply size={14} style={{ margin: isYou ? "0 0 0 4px" : "0 4px 0 0" }} />
+              <Text isTruncated maxW="160px">
+                Replying to {originalMessage?.username || "a message"}
+              </Text>
+            </Flex>
+            <Box
+              width="100%"
+              mb="2"
+              px="2"
+              py="1"
+              borderRadius="md"
+              bg={replyBgColor}
+              borderLeft="3px solid"
+              borderColor={replyBorderColor}
+              fontSize="sm"
+              color={replyTextColor}
+              cursor="pointer"
+              _hover={{ bg: useColorModeValue("gray.100", "gray.500") }}
+            >
+              <Text isTruncated fontWeight="semibold">
+                {originalMessage?.username || "Unknown user"}
+              </Text>
+              <Text isTruncated fontStyle={!originalMessage?.text ? "italic" : "normal"}>
+                {originalMessage?.text || "Message deleted"}
+              </Text>
+            </Box>
+          </>
+        )}
+
+        {/* Rest of your component remains the same */}
         {/* Message bubble */}
         <Box
           px="3"
@@ -178,26 +203,45 @@ export default function Message({ message, isYou, isRead }) {
           {message.text}
         </Box>
 
+        {/* Reply Input */}
+        <Box mt="2" width="100%">
+          <Flex gap="2">
+            <Input
+              value={replyText}
+              onChange={(e) => setReplyText(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder="Type your reply..."
+              size="sm"
+            />
+            <Button
+              size="sm"
+              colorScheme="blue"
+              onClick={handleReplyClick}
+              isLoading={isReplying}
+              isDisabled={!replyText.trim()}
+            >
+              Reply
+            </Button>
+          </Flex>
+        </Box>
+
         {/* Meta info */}
         <Flex
           align="center"
           mt="1"
           gap="1"
           px="2"
-
           direction={isYou ? "row" : "row-reverse"}
         >
-          {/* Timestamp */}
           <Text
             fontSize="xs"
             color={timeColor}
             fontVariant="tabular-nums"
             whiteSpace="nowrap"
           >
-             {dayjs.utc(message.timestamp).tz(timezone).format("h:mm A")}
+            {dayjs.utc(message.timestamp).tz(timezone).format("h:mm A")}
           </Text>
 
-          {/* Read receipt */}
           {isYou && (
             <Box color={readColor}>
               <MdDoneAll size={16} />

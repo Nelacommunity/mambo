@@ -29,8 +29,7 @@ export default function NameForm() {
       setNewUsername(username);
       return;
     }
-    // setUsername(newUsername);
-    // setIsEditing(false);
+
 
     setUsername(newUsername);
     localStorage.setItem("username", newUsername);

@@ -81,31 +81,6 @@ export default function Header() {
         <>
           <GridItem justifySelf="end">
             <VStack spacing={2}>
-              {/* {!otpSent ? (
-                <>
-                  <Input
-                    placeholder="Enter phone number"
-                    size="sm"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                  />
-                  <Button size="sm" colorScheme="teal" onClick={sendOtp}>
-                    Send OTP
-                  </Button>
-                </>
-              ) : (
-                <>
-                  <Input
-                    placeholder="Enter OTP"
-                    size="sm"
-                    value={otp}
-                    onChange={(e) => setOtp(e.target.value)}
-                  />
-                  <Button size="sm" colorScheme="blue" onClick={verifyOtp}>
-                    Verify OTP
-                  </Button>
-                </>
-              )} */}
               <NameForm username={username} setUsername={setUsername} />
             </VStack>
           </GridItem>
