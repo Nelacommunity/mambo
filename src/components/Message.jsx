@@ -1,10 +1,10 @@
-import { Box, Flex, Text, useColorModeValue, keyframes, Input, Button } from "@chakra-ui/react";
+import { Box, Flex, Text, useColorModeValue, keyframes, Input, Button, useToast, IconButton, Menu, MenuButton, MenuList, MenuItem, Tooltip } from "@chakra-ui/react";
 import relativeTime from "dayjs/plugin/relativeTime";
 dayjs.extend(relativeTime);
-import { MdVerified, MdDoneAll, MdReply } from "react-icons/md";
+import { MdVerified, MdDoneAll, MdReply, MdMoreVert, MdEdit, MdDelete } from "react-icons/md";
 import useTimezone from "../hooks/useTimezone";
 import dayjs from "../utils/dayjs-setup";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import supabase from "../supabaseClient";
 
 const fadeIn = keyframes`
@@ -12,10 +12,18 @@ const fadeIn = keyframes`
   to { opacity: 1; transform: translateY(0); }
 `;
 
-export default function Message({ message, isYou, country, username }) {
+const NOTIFICATION_SOUND = "/audio/send-messages.mp3";
+
+export default function Message({ message, isYou, country, username, onMessageUpdate, onMessageDelete }) {
   const [replyText, setReplyText] = useState("");
   const [isReplying, setIsReplying] = useState(false);
   const [originalMessage, setOriginalMessage] = useState(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editedText, setEditedText] = useState(message.text);
+  const [isDeleted, setIsDeleted] = useState(false);
+  const [isUpdated, setIsUpdated] = useState(false);
+  const audioRef = useRef(null);
+  const toast = useToast();
 
   const countyCode = message.country && message.country !== "undefined" 
     ? message.country.toLowerCase() 
@@ -27,7 +35,7 @@ export default function Message({ message, isYou, country, username }) {
         try {
           const { data, error } = await supabase
             .from('messages')
-            .select('id, text, username')
+            .select('id, text, username, is_deleted')
             .eq('id', message.reply_to)
             .single();
           
@@ -43,6 +51,25 @@ export default function Message({ message, isYou, country, username }) {
       setOriginalMessage(message.reply_to);
     }
   }, [message.reply_to]);
+
+  useEffect(() => {
+    audioRef.current = new Audio(NOTIFICATION_SOUND);
+    audioRef.current.volume = 0.3;
+    
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
+    };
+  }, []);
+
+  const playNotificationSound = () => {
+    if (audioRef.current) {
+      audioRef.current.currentTime = 0;
+      audioRef.current.play().catch(e => console.error("Audio play failed:", e));
+    }
+  };
 
   const bgColor = isYou 
     ? useColorModeValue("blue.500", "blue.600")
@@ -62,10 +89,12 @@ export default function Message({ message, isYou, country, username }) {
   const replyTextColor = useColorModeValue("gray.600", "gray.300");
 
   const timezone = useTimezone();
-
   const bubbleShadow = isYou
     ? useColorModeValue("sm", "dark-lg")
     : useColorModeValue("sm", "md");
+
+  const deletedBgColor = useColorModeValue("gray.100", "gray.800");
+  const deletedTextColor = useColorModeValue("gray.500", "gray.400");
 
   const handleSendReply = async () => {
     if (!replyText.trim()) return;
@@ -86,9 +115,24 @@ export default function Message({ message, isYou, country, username }) {
       if (error) throw error;
       
       setReplyText('');
+      playNotificationSound();
+      
+      toast({
+        title: "Reply sent",
+        status: "success",
+        duration: 2000,
+        isClosable: true,
+      });
       
     } catch (error) {
       console.error('Error sending reply:', error);
+      toast({
+        title: "Failed to send reply",
+        description: error.message,
+        status: "error",
+        duration: 3000,
+        isClosable: true,
+      });
     } finally {
       setIsReplying(false);
     }
@@ -106,7 +150,6 @@ export default function Message({ message, isYou, country, username }) {
     }
   };
 
-  // Add scroll to original message function
   const handleScrollToOriginal = () => {
     if (originalMessage?.id) {
       const element = document.getElementById(`message-${originalMessage.id}`);
@@ -115,13 +158,120 @@ export default function Message({ message, isYou, country, username }) {
           behavior: 'smooth',
           block: 'center'
         });
+        playNotificationSound();
       }
     }
   };
 
+  const handleDeleteMessage = async () => {
+    try {
+      const { error } = await supabase
+        .from('messages')
+        .update({ is_deleted: true })
+        .eq('id', message.id);
+      
+      if (error) throw error;
+      
+      setIsDeleted(true);
+      if (onMessageDelete) onMessageDelete(message.id);
+      
+      toast({
+        title: "Message deleted",
+        status: "success",
+        duration: 2000,
+        isClosable: true,
+      });
+      
+    } catch (error) {
+      console.error('Error deleting message:', error);
+      toast({
+        title: "Failed to delete message",
+        description: error.message,
+        status: "error",
+        duration: 3000,
+        isClosable: true,
+      });
+    }
+  };
+
+  const handleEditMessage = async () => {
+    if (!editedText.trim() || editedText === message.text) {
+      setIsEditing(false);
+      return;
+    }
+    
+    try {
+      const { error } = await supabase
+        .from('messages')
+        .update({ 
+          text: editedText,
+          is_updated: true,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', message.id);
+      
+      if (error) throw error;
+      
+      setIsEditing(false);
+      setIsUpdated(true);
+      if (onMessageUpdate) onMessageUpdate(message.id, editedText);
+      
+      toast({
+        title: "Message updated",
+        status: "success",
+        duration: 2000,
+        isClosable: true,
+      });
+      
+    } catch (error) {
+      console.error('Error updating message:', error);
+      toast({
+        title: "Failed to update message",
+        description: error.message,
+        status: "error",
+        duration: 3000,
+        isClosable: true,
+      });
+    }
+  };
+
+  const handleEditKeyDown = (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleEditMessage();
+    } else if (e.key === 'Escape') {
+      setIsEditing(false);
+      setEditedText(message.text);
+    }
+  };
+
+  if (isDeleted) {
+    return (
+      <Box
+        id={`message-${message.id}`}
+        maxW={{ base: "85%", md: "75%" }}
+        ml={isYou ? "auto" : "0"}
+        mr={isYou ? "2" : "auto"}
+        my="1"
+        px="3"
+        py="2"
+        borderRadius="xl"
+        bg={deletedBgColor}
+        color={deletedTextColor}
+        fontStyle="italic"
+        textAlign={isYou ? "right" : "left"}
+      >
+        <Text>Message deleted</Text>
+        <Text fontSize="xs" color={deletedTextColor}>
+          {dayjs.utc(message.timestamp).tz(timezone).format("h:mm A")}
+        </Text>
+      </Box>
+    );
+  }
+
   return (
     <Box
-      id={`message-${message.id}`} // Add ID to message container
+      id={`message-${message.id}`}
       maxW={{ base: "85%", md: "75%" }}
       ml={isYou ? "auto" : "0"}
       mr={isYou ? "2" : "auto"}
@@ -131,6 +281,8 @@ export default function Message({ message, isYou, country, username }) {
       _hover={{
         transform: "translateY(-1px)"
       }}
+      position="relative"
+      role="group"
     >
       <Flex
         direction="column"
@@ -165,46 +317,139 @@ export default function Message({ message, isYou, country, username }) {
               color={replyTextColor}
               cursor="pointer"
               _hover={{ bg: useColorModeValue("gray.100", "gray.500") }}
-              onClick={handleScrollToOriginal} // Add click handler
+              onClick={handleScrollToOriginal}
             >
               <Text isTruncated fontWeight="semibold">
                 {originalMessage?.username || "Unknown user"}
               </Text>
-              <Text isTruncated fontStyle={!originalMessage?.text ? "italic" : "normal"}>
-                {originalMessage?.text || "Message deleted"}
+              <Text isTruncated fontStyle={originalMessage?.is_deleted ? "italic" : "normal"}>
+                {originalMessage?.is_deleted ? "Message deleted" : originalMessage?.text || "Message not available"}
               </Text>
             </Box>
           </>
         )}
 
-        <Box
-          px="3"
-          py="2"
-          borderRadius="xl"
-          borderTopRightRadius={isYou ? "none" : "xl"}
-          borderTopLeftRadius={isYou ? "xl" : "none"}
-          bg={bgColor}
-          color={textColor}
-          boxShadow={bubbleShadow}
-          wordBreak="break-word"
-          fontSize="md"
-          lineHeight="taller"
-          position="relative"
-          _after={{
-            content: '""',
-            position: 'absolute',
-            width: 0,
-            height: 0,
-            border: '8px solid transparent',
-            [isYou ? 'right' : 'left']: 0,
-            [isYou ? 'borderRight' : 'borderLeft']: 0,
-            [isYou ? 'borderTop' : 'borderTop']: `8px solid ${bgColor}`,
-            top: '100%',
-            [isYou ? 'marginRight' : 'marginLeft']: '-8px',
-          }}
-        >
-          {message.text}
-        </Box>
+        {isYou && !isEditing && (
+          <Flex
+            position="absolute"
+            top="-8px"
+            right={isYou ? "-8px" : "unset"}
+            left={isYou ? "unset" : "-8px"}
+            bg={useColorModeValue("white", "gray.800")}
+            borderRadius="full"
+            boxShadow="md"
+            p="1"
+            opacity="0"
+            _groupHover={{ opacity: 1 }}
+            transition="opacity 0.2s ease"
+            zIndex="1"
+          >
+            <Tooltip label="Edit message" placement="top">
+              <IconButton
+                aria-label="Edit message"
+                icon={<MdEdit />}
+                size="xs"
+                variant="ghost"
+                colorScheme="blue"
+                onClick={() => setIsEditing(true)}
+                mr="1"
+              />
+            </Tooltip>
+            <Tooltip label="Delete message" placement="top">
+              <IconButton
+                aria-label="Delete message"
+                icon={<MdDelete />}
+                size="xs"
+                variant="ghost"
+                colorScheme="red"
+                onClick={handleDeleteMessage}
+              />
+            </Tooltip>
+          </Flex>
+        )}
+        
+        {isEditing ? (
+          <Box
+            px="3"
+            py="2"
+            borderRadius="xl"
+            borderTopRightRadius={isYou ? "none" : "xl"}
+            borderTopLeftRadius={isYou ? "xl" : "none"}
+            bg={bgColor}
+            color={textColor}
+            boxShadow={bubbleShadow}
+            width="100%"
+          >
+            <Input
+              value={editedText}
+              onChange={(e) => setEditedText(e.target.value)}
+              onKeyDown={handleEditKeyDown}
+              autoFocus
+              color={textColor}
+              _placeholder={{ color: textColor, opacity: 0.7 }}
+              mb={2}
+              borderColor={textColor}
+              _hover={{ borderColor: textColor }}
+              _focus={{ borderColor: textColor, boxShadow: `0 0 0 1px ${textColor}` }}
+            />
+            <Flex justify="flex-end" gap={2}>
+              <Button 
+                size="xs" 
+                onClick={() => {
+                  setIsEditing(false);
+                  setEditedText(message.text);
+                }}
+                variant="outline"
+                color={textColor}
+                _hover={{ bg: useColorModeValue("blue.600", "blue.500") }}
+              >
+                Cancel
+              </Button>
+              <Button 
+                size="xs" 
+                colorScheme="blue" 
+                onClick={handleEditMessage}
+                _hover={{ transform: "scale(1.05)" }}
+              >
+                Save
+              </Button>
+            </Flex>
+          </Box>
+        ) : (
+          <Box
+            px="3"
+            py="2"
+            borderRadius="xl"
+            borderTopRightRadius={isYou ? "none" : "xl"}
+            borderTopLeftRadius={isYou ? "xl" : "none"}
+            bg={bgColor}
+            color={textColor}
+            boxShadow={bubbleShadow}
+            wordBreak="break-word"
+            fontSize="md"
+            lineHeight="taller"
+            position="relative"
+            _after={{
+              content: '""',
+              position: 'absolute',
+              width: 0,
+              height: 0,
+              border: '8px solid transparent',
+              [isYou ? 'right' : 'left']: 0,
+              [isYou ? 'borderRight' : 'borderLeft']: 0,
+              [isYou ? 'borderTop' : 'borderTop']: `8px solid ${bgColor}`,
+              top: '100%',
+              [isYou ? 'marginRight' : 'marginLeft']: '-8px',
+            }}
+          >
+            {message.text}
+            {isUpdated && (
+              <Text as="span" fontSize="xs" opacity={0.7} ml={2}>
+                (edited)
+              </Text>
+            )}
+          </Box>
+        )}
 
         <Box mt="2" width="100%">
           <Flex gap="2">
@@ -241,6 +486,11 @@ export default function Message({ message, isYou, country, username }) {
             whiteSpace="nowrap"
           >
             {dayjs.utc(message.timestamp).tz(timezone).format("h:mm A")}
+            {isUpdated && (
+              <Text as="span" ml={1}>
+                (edited)
+              </Text>
+            )}
           </Text>
 
           {isYou && (

@@ -67,6 +67,26 @@ const AppContextProvider = ({ children }) => {
     localStorage.setItem("username", username);
   };
 
+  const onMessageUpdate = (messageId, newText) => {
+    setMessages(prevMessages =>
+      prevMessages.map(message =>
+        message.id === messageId
+          ? { ...message, text: newText, is_updated: true }
+          : message
+      )
+    );
+  };
+
+  const onMessageDelete = (messageId) => {
+    setMessages(prevMessages =>
+      prevMessages.map(message =>
+        message.id === messageId
+          ? { ...message, is_deleted: true }
+          : message
+      )
+    );
+  };
+
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       initializeUser(session);
@@ -109,13 +129,36 @@ const AppContextProvider = ({ children }) => {
   }, [newIncomingMessageTrigger]);
 
   const handleNewMessage = (payload) => {
-    setMessages((prevMessages) => [payload.new, ...prevMessages]);
-    setNewIncomingMessageTrigger(payload.new);
-
-    // Increment unread message count if the message is not from the current user
-  if (payload.new.username !== username) {
-    setUnviewedMessageCount((prevCount) => prevCount + 1);
-  }
+    // Skip if this is a delete operation
+    if (payload.eventType === 'UPDATE' && payload.new.is_deleted) {
+      return;
+    }
+  
+    // Skip if this is an update to an already deleted message
+    const existingMessage = messages.find(m => m.id === payload.new.id);
+    if (existingMessage?.is_deleted) {
+      return;
+    }
+  
+    // For new messages or non-delete updates
+    setMessages((prevMessages) => {
+      // If this is an update, replace the existing message
+      if (payload.eventType === 'UPDATE') {
+        return prevMessages.map(msg => 
+          msg.id === payload.new.id ? payload.new : msg
+        );
+      }
+      // For new messages, prepend to the list
+      return [payload.new, ...prevMessages];
+    });
+  
+    // Trigger new message effects only for non-updates
+    if (payload.eventType !== 'UPDATE') {
+      setNewIncomingMessageTrigger(payload.new);
+      if (payload.new.username !== username) {
+        setUnviewedMessageCount((prevCount) => prevCount + 1);
+      }
+    }
   };
 
   const getInitialMessages = async () => {
@@ -185,7 +228,7 @@ const AppContextProvider = ({ children }) => {
   useEffect(() => {
     // Update the site title with the number of unread messages
     if (unviewedMessageCount > 0) {
-      document.title = `(${unviewedMessageCount}) New Messages - My Chat App`;
+      document.title = `(${unviewedMessageCount}) New Messages - Mambo`;
     } else {
       document.title = "Mambo";
     }
@@ -209,6 +252,8 @@ const AppContextProvider = ({ children }) => {
         country: countryCode,
         unviewedMessageCount,
         session,
+        onMessageUpdate,
+        onMessageDelete
       }}
     >
       {/* Hidden audio element for new message notifications */}
