@@ -1,11 +1,15 @@
-import { Box, Flex, Text, useColorModeValue, keyframes, Input, Button, useToast, IconButton, Menu, MenuButton, MenuList, MenuItem, Tooltip ,Image } from "@chakra-ui/react";
+import { Box, Flex, Text, useColorModeValue, keyframes, Input, Button, useToast, IconButton, Menu, MenuButton, MenuList, MenuItem, Tooltip ,Image ,  Popover,
+  PopoverTrigger,
+  PopoverContent} from "@chakra-ui/react";
 import relativeTime from "dayjs/plugin/relativeTime";
 dayjs.extend(relativeTime);
-import { MdVerified, MdDoneAll, MdReply, MdMoreVert, MdEdit, MdDelete } from "react-icons/md";
+import { MdVerified, MdDoneAll, MdReply, MdMoreVert, MdEdit, MdDelete} from "react-icons/md";
 import useTimezone from "../hooks/useTimezone";
 import dayjs from "../utils/dayjs-setup";
 import { useState, useEffect, useRef } from "react";
 import supabase from "../supabaseClient";
+import GifPicker from "./GifPicker";
+import { BiSend, BiImageAlt } from "react-icons/bi";
 
 const fadeIn = keyframes`
   from { opacity: 0; transform: translateY(4px); }
@@ -14,7 +18,7 @@ const fadeIn = keyframes`
 
 const NOTIFICATION_SOUND = "/audio/send-messages.mp3";
 
-export default function Message({ message, isYou, country, username, onMessageUpdate, onMessageDelete }) {
+export default function Message({ message, isYou, country, username, onMessageUpdate, onMessageDelete , session }) {
   const [replyText, setReplyText] = useState("");
   const [isReplying, setIsReplying] = useState(false);
   const [originalMessage, setOriginalMessage] = useState(null);
@@ -22,6 +26,7 @@ export default function Message({ message, isYou, country, username, onMessageUp
   const [editedText, setEditedText] = useState(message.text);
   const [isDeleted, setIsDeleted] = useState(false);
   const [isUpdated, setIsUpdated] = useState(false);
+  const [isSending, setIsSending] = useState(false);
   const audioRef = useRef(null);
   const toast = useToast();
 
@@ -29,28 +34,7 @@ export default function Message({ message, isYou, country, username, onMessageUp
     ? message.country.toLowerCase()
     : "";
 
-  useEffect(() => {
-    if (message.reply_to && typeof message.reply_to === 'number') {
-      const fetchOriginalMessage = async () => {
-        try {
-          const { data, error } = await supabase
-            .from('messages')
-            .select('id, text, username, is_deleted')
-            .eq('id', message.reply_to)
-            .single();
 
-          if (error) throw error;
-          setOriginalMessage(data);
-        } catch (error) {
-          console.error('Error fetching original message:', error);
-        }
-      };
-
-      fetchOriginalMessage();
-    } else if (message.reply_to && typeof message.reply_to === 'object') {
-      setOriginalMessage(message.reply_to);
-    }
-  }, [message.reply_to]);
 
   useEffect(() => {
     audioRef.current = new Audio(NOTIFICATION_SOUND);
@@ -95,6 +79,29 @@ export default function Message({ message, isYou, country, username, onMessageUp
 
   const deletedBgColor = useColorModeValue("gray.100", "gray.800");
   const deletedTextColor = useColorModeValue("gray.500", "gray.400");
+
+  useEffect(() => {
+    if (message.reply_to && typeof message.reply_to === 'number') {
+      const fetchOriginalMessage = async () => {
+        try {
+          const { data, error } = await supabase
+            .from('messages')
+            .select('id, text, username, is_deleted , gif_url ')
+            .eq('id', message.reply_to)
+            .single();
+
+          if (error) throw error;
+          setOriginalMessage(data);
+        } catch (error) {
+          console.error('Error fetching original message:', error);
+        }
+      };
+
+      fetchOriginalMessage();
+    } else if (message.reply_to && typeof message.reply_to === 'object') {
+      setOriginalMessage(message.reply_to);
+    }
+  }, [message.reply_to]);
 
   const handleSendReply = async () => {
     if (!replyText.trim()) return;
@@ -235,6 +242,39 @@ export default function Message({ message, isYou, country, username, onMessageUp
     }
   };
 
+  const handleSendGif = async (gifUrl) => {
+    setIsSending(true);
+    try {
+      const { error } = await supabase.from("messages").insert([
+        {
+          gif_url: gifUrl,
+          username,
+          country,
+          is_authenticated: session ? true : false,
+        },
+      ]);
+
+      if (error) throw error;
+
+      // Play success sound
+      if (audioRef.current) {
+        audioRef.current.currentTime = 0;
+        audioRef.current.play();
+      }
+     
+    } catch (error) {
+      toast({
+        title: "Error sending GIF",
+        description: error.message,
+        status: "error",
+        duration: 9000,
+        isClosable: true,
+      });
+    } finally {
+      setIsSending(false);
+    }
+  };
+
   const handleEditKeyDown = (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
@@ -322,9 +362,25 @@ export default function Message({ message, isYou, country, username, onMessageUp
               <Text isTruncated fontWeight="semibold">
                 {originalMessage?.username || "Unknown user"}
               </Text>
+
+              {originalMessage?.gif_url ? (
+              <>
+                <Image
+                  src={originalMessage.gif_url}
+                  alt="GIF"
+                  maxW="100px"
+                  borderRadius="md"
+                  mb={message.text ? 2 : 0}
+                />
+                {message.text && (
+                  <Text>{message.text}</Text>
+                )}
+              </>
+            ) : (
               <Text isTruncated fontStyle={originalMessage?.is_deleted ? "italic" : "normal"}>
                 {originalMessage?.is_deleted ? "Message deleted" : originalMessage?.text || "Message not available"}
               </Text>
+            )}
             </Box>
           </>
         )}
@@ -484,6 +540,19 @@ export default function Message({ message, isYou, country, username, onMessageUp
             >
               Reply
             </Button>
+            <Popover placement="top-start">
+              <PopoverTrigger>
+                <IconButton
+                  aria-label="Send GIF"
+                  icon={<BiImageAlt />}
+                  variant="ghost"
+                  colorScheme="gray"
+                />
+              </PopoverTrigger>
+              <PopoverContent width="auto">
+                <GifPicker onSelect={handleSendGif} />
+              </PopoverContent>
+            </Popover>
           </Flex>
         </Box>
 

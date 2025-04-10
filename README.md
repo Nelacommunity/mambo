@@ -1,4 +1,4 @@
-# Full-stack real-time chat
+ # Full-stack real-time chat
 
 [![Netlify Status](https://api.netlify.com/api/v1/badges/38b6f457-50d2-42ac-b9a8-9ca962febebd/deploy-status)](https://app.netlify.com/sites/random-chat/deploys)
 
