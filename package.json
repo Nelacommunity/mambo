@@ -16,6 +16,7 @@
     "dayjs": "^1.11.13",
     "firebase": "^11.6.0",
     "framer-motion": "^10.16.12",
+    "mega": "^0.2.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-icons": "^4.12.0",

@@ -14,6 +14,7 @@ import { BiSend, BiImageAlt } from "react-icons/bi";
 import { useAppContext } from "../context/appContext";
 import supabase from "../supabaseClient";
 import GifPicker from "./GifPicker";
+import MessageInput from './ImageUpload'
 
 export default function MessageForm() {
   const { username, country, session } = useAppContext();
@@ -93,6 +94,40 @@ export default function MessageForm() {
     }
   };
 
+  const handleImageUpload = async (imageUrl , text) => {
+    setIsSending(true);
+    console.log('Sending message:', { imageUrl , text})
+    try {
+      const { error } = await supabase.from("messages").insert([
+        {
+          imageUrl : imageUrl.imageUrl,
+          text,
+          username,
+          country,
+          is_authenticated: session ? true : false,
+        },
+      ]);
+
+      if (error) throw error;
+
+      // Play success sound
+      if (audioRef.current) {
+        audioRef.current.currentTime = 0;
+        audioRef.current.play();
+      }
+    } catch (error) {
+      toast({
+        title: "Error sending GIF",
+        description: error.message,
+        status: "error",
+        duration: 9000,
+        isClosable: true,
+      });
+    } finally {
+      setIsSending(false);
+    }
+  };
+
   return (
     <Box py="10px" pt="15px" bg="gray.100">
       <audio ref={audioRef} src="/audio/default.mp3" preload="auto" />
@@ -113,6 +148,7 @@ export default function MessageForm() {
                 <GifPicker onSelect={handleSendGif} />
               </PopoverContent>
             </Popover>
+            <MessageInput onSendMessage={handleImageUpload}/>
             
             <Input
               name="message"

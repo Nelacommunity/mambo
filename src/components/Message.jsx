@@ -1,9 +1,19 @@
-import { Box, Flex, Text, useColorModeValue, keyframes, Input, Button, useToast, IconButton, Menu, MenuButton, MenuList, MenuItem, Tooltip ,Image ,  Popover,
+import {
+  Box, Flex, Text, useColorModeValue, 
+  keyframes, Input, Button, useToast,
+  IconButton, Menu, MenuButton, MenuList,
+  MenuItem, Tooltip, Image, Popover,
   PopoverTrigger,
-  PopoverContent} from "@chakra-ui/react";
+  PopoverContent ,
+  Modal,
+  ModalOverlay,
+  ModalContent,
+  ModalCloseButton,
+  useDisclosure
+} from "@chakra-ui/react";
 import relativeTime from "dayjs/plugin/relativeTime";
 dayjs.extend(relativeTime);
-import { MdVerified, MdDoneAll, MdReply, MdMoreVert, MdEdit, MdDelete} from "react-icons/md";
+import { MdVerified, MdDoneAll, MdReply, MdMoreVert, MdEdit, MdDelete } from "react-icons/md";
 import useTimezone from "../hooks/useTimezone";
 import dayjs from "../utils/dayjs-setup";
 import { useState, useEffect, useRef } from "react";
@@ -18,7 +28,7 @@ const fadeIn = keyframes`
 
 const NOTIFICATION_SOUND = "/audio/send-messages.mp3";
 
-export default function Message({ message, isYou, country, username, onMessageUpdate, onMessageDelete , session }) {
+export default function Message({ message, isYou, country, username, onMessageUpdate, onMessageDelete, session }) {
   const [replyText, setReplyText] = useState("");
   const [isReplying, setIsReplying] = useState(false);
   const [originalMessage, setOriginalMessage] = useState(null);
@@ -261,7 +271,7 @@ export default function Message({ message, isYou, country, username, onMessageUp
         audioRef.current.currentTime = 0;
         audioRef.current.play();
       }
-     
+
     } catch (error) {
       toast({
         title: "Error sending GIF",
@@ -363,24 +373,37 @@ export default function Message({ message, isYou, country, username, onMessageUp
                 {originalMessage?.username || "Unknown user"}
               </Text>
 
-              {originalMessage?.gif_url ? (
-              <>
-                <Image
-                  src={originalMessage.gif_url}
-                  alt="GIF"
-                  maxW="100px"
-                  borderRadius="md"
-                  mb={message.text ? 2 : 0}
-                />
-                {message.text && (
-                  <Text>{message.text}</Text>
-                )}
-              </>
-            ) : (
-              <Text isTruncated fontStyle={originalMessage?.is_deleted ? "italic" : "normal"}>
-                {originalMessage?.is_deleted ? "Message deleted" : originalMessage?.text || "Message not available"}
-              </Text>
-            )}
+              {originalMessage?.image_url ? (
+                <Box mt={1}>
+                  <Image
+                    src={originalMessage.image_url}
+                    alt="Reply content"
+                    maxW="100px"
+                    borderRadius="md"
+                    mb={originalMessage.text ? 1 : 0}
+                  />
+                  {originalMessage.text && (
+                    <Text>{originalMessage.text}</Text>
+                  )}
+                </Box>
+              ) : originalMessage?.gif_url ? (
+                <>
+                  <Image
+                    src={originalMessage.gif_url}
+                    alt="GIF"
+                    maxW="100px"
+                    borderRadius="md"
+                    mb={originalMessage.text ? 1 : 0}
+                  />
+                  {originalMessage.text && (
+                    <Text>{originalMessage.text}</Text>
+                  )}
+                </>
+              ) : (
+                <Text isTruncated fontStyle={originalMessage?.is_deleted ? "italic" : "normal"}>
+                  {originalMessage?.is_deleted ? "Message deleted" : originalMessage?.text || "Message not available"}
+                </Text>
+              )}
             </Box>
           </>
         )}
@@ -498,6 +521,22 @@ export default function Message({ message, isYou, country, username, onMessageUp
               [isYou ? 'marginRight' : 'marginLeft']: '-8px',
             }}
           >
+
+            {message.imageUrl && (
+              <Box mb={message.text ? 2 : 0}>
+                <Image
+                  src={message.imageUrl}
+                  alt="Uploaded content"
+                  maxW="500px"
+                  maxH="500px"
+                  borderRadius="md"
+                  objectFit="cover"
+                  cursor="pointer"
+                  _hover={{ opacity: 0.9 }}
+                />
+              </Box>
+            )}
+
             {message.gif_url ? (
               <>
                 <Image
